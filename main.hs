@@ -2,7 +2,12 @@ import Data.Char
 import Data.Maybe
 import Data.Tuple
 import Data.List
+import System.IO
 import Debug.Trace
+import GHC.IO.Encoding
+import System.Process
+-- import Data.ByteString (fromFilePath)
+-- import Data.ByteString.Char8 as C8 (hGetContents, pack, unpack)
 
 type OBJECTIVE = String --용언
 type OBJECT = String --체언
@@ -10,9 +15,11 @@ type OBJECT = String --체언
 
 data FUNCTOR = FM [OBJECT] VAR -- 수식어([명사]) 
             | NM [OBJECTIVE] VAR -- [수식어] (수식어)
+            | AM [VAR] VAR -- [여기서 정의한 이름] (여기서 정의한 이름)
             | F [OBJECT] VAR -- [명사] -> 명사
             | N [FUNCTOR] VAR -- [수식어] -> 수식어
             | A VAR VAR -- [여기서 정의한 이름] -> 여기서 정의한 이름
+
 
        deriving (Eq, Show)
 
@@ -57,9 +64,9 @@ morpF :: FUNCTOR -> CAT -> Env -> CAT
 morpF f x e =
             case f of
                     FM o1 o2 ->
-                        let Object o = appEnv o2 e in
+                        let Objective o = appEnv o2 e in
                         case x of
-                            Object cat -> if cat `elem` o1 then Object (o ++ "/" ++ cat) else error $ "notExistObj: error caused by you " ++ o ++ " is Dead"
+                            Object cat -> if cat `elem` o1 then Object (o ++ "/" ++ cat) else error $ "notBelongObj: error caused by you " ++ o ++ " is Dead"
                             Objective cat -> error $ "you caused serious grammer issue " ++ cat ++ " is not noun"
                             Functor cat -> morpF cat (Object o) e
                     NM o1 o2 ->
@@ -68,38 +75,50 @@ morpF f x e =
                                 Objective cat ->
                                     if cat `elem` o1 then
                                         Objective $ o ++ cat
-                                        else error $ "notExistFn: error caused by you" ++ o2 ++ " doesn`t exist"
+                                        else error $ "notBelongFn: error caused by you" ++ o2 ++ " doesn`t exist"
                                 Object cat ->
                                         if cat `elem` o1 then
-                                        Objective $ o ++ cat
-                                        else error $ "notExistFn: error caused by you" ++ o2 ++ " doesn`t exist"
-
+                                        Object $ o ++ cat
+                                        else error $ "notBelongFn: error caused by you" ++ o2 ++ " doesn`t exist"
+                    AM xs v -> let vs = map (`appEnv` e) xs in
+                            let v2 = appEnv v e in
+                            case (head vs, v2) of
+                            (Object object, Object obj)->
+                                morpF (F (map (\(Object x) -> x) vs) v) x e
+                            (Object object, Objective obj)->
+                                morpF (F (map (\(Object x) -> x) vs) v) x e
+                            (Objective objective,  Objective obj)->
+                                morpF (NM (map (\(Objective x) -> x) vs) v) x e
+                            (Functor functor, _)->
+                                error $ "you made this program doomed " ++ concatMap cattoStr vs ++ " is functor"
+                            _ -> error $ "your life wrong because " ++ concatMap cattoStr vs ++ " <- " ++ cattoStr v2 ++ " not exist"
                     F o1 o2 ->
                         let Object o = appEnv o2 e in
                         case x of
                             Object object ->
-                                if object `elem` o1 then Object (object ++ "/" ++ o) else error $ "notExistMorp: error caused by you " ++ o ++ " is Dead"
+                                if object `elem` o1 then Object (object ++ "/" ++ o) else error $ "notBelongMorp: error caused by you " ++ o ++ " is Dead"
                             Objective objective ->
-                                if objective `elem` o1 then Object (objective ++ " " ++ o) else error $ "notExistMorp: error caused by you " ++ o ++ " is Dead"
-                            Functor functor -> error $ "you wrote wrong" ++ show functor ++ "is functor"
+                                if objective `elem` o1 then Object (objective ++ " " ++ o) else error $ "notBelongMorp: error caused by you " ++ o ++ " is Dead"
+                            Functor functor -> error $ "you wrote wrong" ++ cattoStr x ++ "is functor"
                     N o1 o2 ->
                         case appEnv o2 e of
                             Functor fun ->
                                 let Functor functor = x in
-                                        if functor `elem` o1 then morpF fun x e else error $ "notExistMorp: error caused by you " ++ show functor ++ " is Dead"
-                            Objective obj -> 
+                                        if functor `elem` o1 then morpF fun x e else error $ "notBelongMorp: error caused by you " ++ cattoStr x ++ " is Dead"
+                            Objective obj ->
                                 let Object object = x in
                                     Objective (obj  ++ object)
-                                
+
                     A x1 x2 -> let v = appEnv x1 e in
                             let v2 = appEnv x2 e in
                             case v of
                             Object object ->
                                 morp x1 x2 $ extEnv [(x1, x), (x2, v)] e
                             Objective objective ->
-                                error $ "grammarERr: error caused by you " ++ objective ++ " is not noun"
+                                morp x1 x2 $ extEnv [(x1, x), (x2, v)] e
                             Functor functor ->
                                 morp x1 x2 $ extEnv [(x1, x), (x2, v)] e
+
                     _ -> error "UNREACHABLE CODE REACHED!!"
 
 
@@ -114,11 +133,81 @@ morp c x' e =
                 Functor cat -> morp o c $ extEnv [(o, x), (c, Functor cat)] e
         Objective o -> let x = appEnv x' e in
             case x of
-                Objective cat -> Object (cat ++ " " ++ o)
-                Object cat -> Object (cat ++ " " ++ o)
+                Objective cat -> Objective (cat ++ " " ++ o)
+                Object cat -> Objective (o ++ " " ++ cat)
                 Functor cat -> morp o c $ extEnv [(o, x), (c, Functor cat)] e
         Functor f' -> let x = appEnv x' e in
             morpF f' x e
+
+
+
+dic :: IO ()
+dic = do
+    system "chcp 65001"
+    setLocaleEncoding utf8
+    handle <- openFile "dic.txt" ReadWriteMode
+    -- encoding <- hGetEncoding handle
+    -- hSetEncoding handle$ fromMaybe (error "?") encoding
+    -- hSetEncoding stdin $ fromMaybe (error "?") encoding
+    x <- getLine
+    cat <- getLine
+    let cat' = catParser cat
+
+    dic <- hGetContents handle
+    -- print =<< hGetEncoding handle
+    --putStrLn dic
+    let dict = envParser  dic
+    let str = dictoStr $ def x cat' dict
+    putStrLn dic
+    hClose handle
+
+    writeFile "dic.txt" cat
+
+
+
+dictoStr :: Env -> String
+
+dictoStr (e:es) =
+    let (v, c) = e in
+        v ++ "^" ++ cattoStr c ++ "$" ++ dictoStr es
+dictoStr e = []
+
+envParser :: String -> Env
+envParser s = []
+
+catParser :: String -> CAT
+catParser = Object
+
+
+cattoStr :: CAT -> String
+cattoStr c = case c of
+    Object o -> o
+    Objective o -> "*" ++ o
+    Functor f ->
+        case f of
+            FM os v -> "@" ++ v ++ "+" ++ concatMap (++ ",") os  ++ "@"
+            NM os c -> "#" ++c ++"+" ++  concatMap ((++ ",") . ("*" ++))  os ++ "#"
+            F os c -> "$" ++ c++"->" ++  concatMap (++ ",") os ++ "$"
+            N (f':fs) c ->
+                    "%" ++ cattoStr (Functor f') ++ "," ++ functoStr fs ++ "%"
+
+
+functoStr :: [FUNCTOR] -> String
+functoStr (f:fs) = case f of
+            FM os v -> "@" ++ (take $ length os*2 - 1) (concatMap (++ ",") os)  ++ "@"
+            NM os c -> "#" ++ (take $ length os*3 - 1) (concatMap ((++ ",") . ("*" ++))  os) ++ "#"
+            F os c -> "$" ++ (take $ length os*2 - 1) (concatMap (++ ",") os) ++ "$"
+            N (f':fs') c ->
+                    "%" ++ cattoStr (Functor f')++ functoStr fs' ++ "%"
+
+
+
+
+
+
+
+
+
 
             --tokenizer--
 data TokenType = LEFTPARAN
