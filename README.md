@@ -11,22 +11,25 @@
 
 
 ```
-data OBJECT = String
+data SENTENCE a = LEAF a
+                | BRANCH (SENTENCE a) (SENTENCE a)
         deriving (Eq, Show)
 
-data SENTENCE a = MODIFIER a
-                | MODIFICAND (SENTENCE a, SENTENCE a)
-
-data FUNCTOR = FM [CAT] VAR-- 수식어([명사]) 
-                | NM [CAT] VAR -- [수식어] (수식어)
-                | F [CAT] VAR-- [명사] -> 명사
-                | N [CAT] VAR -- [수식어] -> 수식어
+instance Functor SENTENCE where
+    fmap :: (a -> b) -> SENTENCE a -> SENTENCE b
+    fmap f (LEAF x) = LEAF (f x)
+    fmap f (BRANCH a b) = BRANCH (fmap f a) (fmap f b)
 
 
-data CAT = SENTENCE CAT
-        | OBJECT
+data FUNCTOR v = F [CAT] v
+             | F' [CAT] v
+        deriving (Eq, Show)
+
+data CAT = Sentence (SENTENCE CAT)
+        | Object OBJECT
         | NULL
-
+        | Functor (FUNCTOR VAR)
+        deriving (Eq, Show)
 ```
 
 
@@ -34,7 +37,7 @@ data CAT = SENTENCE CAT
 
 단어에는 간단한 타입이 있습니다.
 ```
-나중에 씀
+위에 써있음.. 나중에 자세한 설명을 쓰겠습니다
 ```
 
 todo: 파서, Env 사전 파일
