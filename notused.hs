@@ -79,7 +79,7 @@ morpS f s e =
             map (flip (morpF f) e) s
         M' m ->
             morpM m s e
-        Objective o -> 
+
         _ -> error $ "because of you i lost hope "++ show f ++ " is nothing"
         
 
