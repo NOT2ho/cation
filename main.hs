@@ -35,6 +35,8 @@ type Env = [(VAR, CAT)]
 printOBJ :: CAT -> IO ()
 printOBJ cat = putStrLn $  cattoStr cat
 
+printENV :: Env -> IO ()
+printENV env = putStrLn $ envtoStr env
 
 extEnv :: Env -> Env -> Env
 extEnv e0 e1
@@ -157,7 +159,7 @@ dic = do
     -- print =<< hGetEncoding handle
     --putStrLn dic
     let dict = envParser  dic
-    let str = dictoStr $ def x cat' dict
+    let str = envtoStr $ def x cat' dict
     putStrLn dic
     hClose handle
 
@@ -165,12 +167,11 @@ dic = do
 
 
 
-dictoStr :: Env -> String
-
-dictoStr (e:es) =
+envtoStr :: Env -> String
+envtoStr (e:es) =
     let (v, c) = e in
-        v ++ "^" ++ cattoStr c ++ "$" ++ dictoStr es
-dictoStr e = []
+        "(" ++ v ++ "^" ++ cattoStr c ++ "$" ++ ")" ++ envtoStr es
+envtoStr e = []
 
 envParser :: String -> Env
 envParser s = []
@@ -179,7 +180,7 @@ catParser :: String -> CAT
 catParser = Object
 
 
-cattoStr :: CAT -> String
+cattoStr :: CAT ->  String
 cattoStr c = case c of
     Object o -> o
     Objective o -> "*" ++ o
@@ -190,7 +191,8 @@ cattoStr c = case c of
             F os c -> "$" ++ c++"->" ++  concatMap (++ ",") os ++ "$"
             N (f':fs) c ->
                     "%" ++ cattoStr (Functor f') ++ "," ++ functoStr fs ++ "%"
-
+            A f' f'' -> "?" ++ f' ++ "->" ++ f'' ++ "?"
+            AM f' f'' -> "!" ++f''  ++ "+" ++ concatMap ((++ ",") . ("*" ++)) f'++ "!"
 
 functoStr :: [FUNCTOR] -> String
 functoStr (f:fs) = case f of
