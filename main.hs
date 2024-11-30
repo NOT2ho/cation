@@ -7,7 +7,7 @@ type OBJECT = String
 
 data SENTENCE a = LEAF a
                 | BRANCH (SENTENCE a) (SENTENCE a)
-        deriving (Eq, Show)
+        deriving (Eq, Show, Foldable)
 
 instance Functor SENTENCE where
     fmap :: (a -> b) -> SENTENCE a -> SENTENCE b
@@ -27,6 +27,11 @@ data CAT = Sentence (SENTENCE CAT)
 
 type VAR = String
 type Env = [(VAR, CAT)]
+
+
+printSent :: SENTENCE CAT -> IO ()
+printSent cat =  mapM_ (putStr . cattoStr) cat >> putStrLn ""
+
 
 extEnv :: Env -> Env -> Env
 extEnv e0 e1
@@ -49,19 +54,26 @@ findVar cat env
 def :: VAR -> CAT -> Env -> Env
 def x c = extEnv [(x,c)]
 
+morp :: [VAR] -> VAR -> Env -> SENTENCE CAT
+morp vars s e =
+        let fs = map (`appEnv` e) vars in
+        let cs = (`appEnv` e) s in
+                morpF (map (\(Functor x) -> x) fs) ((\(Sentence x) -> x) cs) e
+
 morpF :: [FUNCTOR VAR] -> SENTENCE CAT -> Env -> SENTENCE CAT
-morpF (va:rs) sentence env = morpF rs (morpOne va sentence env) env
-morpF v sentence env = sentence
+-- morpF (va:rs) sentence env = morpF rs (morpOne va sentence env) env
+-- morpF v sentence env = sentence
+morpF f s e = foldl (\ s f -> morpOne f s e) s f
 
 morpOne :: FUNCTOR VAR -> SENTENCE CAT -> Env -> SENTENCE CAT
 morpOne f s e =
         case f of
                 F cs v ->
                         let real = appEnv v e in
-                                ( \x -> if x `elem` cs then real else x ) <$> s
+                                (\x -> if x `elem` cs then real else x ) <$> s
                 F' cs v ->
                         let real = appEnv v e in
-                                ( \x -> if x `elem` cs then Sentence (BRANCH (LEAF NULL) (LEAF real)) else x ) <$> s
+                                (\x -> if x `elem` cs then Sentence (BRANCH (LEAF real) (LEAF x)) else x ) <$> s
 
 cattoStr :: CAT ->  String
 cattoStr c = case c of
@@ -74,7 +86,7 @@ cattoStr c = case c of
     NULL -> "_"
 
 senttoStr :: SENTENCE CAT -> String
-senttoStr s = 
-        case s of 
-                LEAF a -> cattoStr a 
-                BRANCH c1 c2 -> senttoStr c1 ++ "-" ++ senttoStr c2 
+senttoStr s =
+        case s of
+                LEAF a -> cattoStr a
+                BRANCH c1 c2 -> senttoStr c1 ++ "-" ++ senttoStr c2

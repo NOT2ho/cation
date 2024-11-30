@@ -10,34 +10,23 @@
 *더 나은 수식 구조를 위해 완전히 처음부터 수정중..*
 
 
+입력
 ```
-data SENTENCE a = LEAF a
-                | BRANCH (SENTENCE a) (SENTENCE a)
-        deriving (Eq, Show)
+printSent $ morp ["징그럽게", "핵",  "불쌍"] "고양이" (def "핵" (Functor (F' [ Functor (F' [Object "짐승", Object "애옹"] "불쌍한") ] "너무너무" )) (def "불쌍" (Functor (F' [Object "애옹", Object "징짐"] "애옹애옹" )) (def "고양이" (Sentence (LEAF (Object "짐승"))) [("애옹",Object "애옹"), ("왜우우우우우웅",Object "왜우우우우우웅"),("징그럽게", Functor ((F' [Object "애옹"] "왜우우우우우웅") )), ("애옹애옹", Object "애옹거리는") , ("너무너무", Object "너무ㅜㅜ") ] ) ) )
 
-instance Functor SENTENCE where
-    fmap :: (a -> b) -> SENTENCE a -> SENTENCE b
-    fmap f (LEAF x) = LEAF (f x)
-    fmap f (BRANCH a b) = BRANCH (fmap f a) (fmap f b)
-
-
-data FUNCTOR v = F [CAT] v
-             | F' [CAT] v
-        deriving (Eq, Show)
-
-data CAT = Sentence (SENTENCE CAT)
-        | Object OBJECT
-        | NULL
-        | Functor (FUNCTOR VAR)
-        deriving (Eq, Show)
 ```
 
+출력
+```
+(애옹거리는-(너무ㅜㅜ-(왜우우우우우웅-짐승)))
+```
 
 # 규칙
 
 단어에는 간단한 타입이 있습니다.
 ```
-위에 써있음.. 나중에 자세한 설명을 쓰겠습니다
+지금 바빠서
+나중에 자세한 설명을 쓰겠습니다
 ```
 
 todo: 파서, Env 사전 파일
