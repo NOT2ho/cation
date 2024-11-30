@@ -33,8 +33,7 @@ type VAR = String
 type Env = [(VAR, CAT)]
 
 printOBJ :: CAT -> IO ()
-printOBJ (Object o) = putStrLn o
-printOBJ (Objective o) = putStrLn o
+printOBJ cat = putStrLn $  cattoStr cat
 
 
 extEnv :: Env -> Env -> Env
@@ -49,11 +48,11 @@ appEnv v (e:es) =
 
 findOBJ :: VAR -> Env -> CAT
 findOBJ var env
-    = fromMaybe (error "vocab not found") $ var `lookup` env
+    = fromMaybe (error $ var   ++ ": vocab not found") $ var `lookup` env
 
 findVar :: CAT -> Env -> VAR
 findVar cat env
-    = fromMaybe (error "val not found") $ cat `lookup` map swap env
+    = fromMaybe (error $ cattoStr cat ++ " :not found") $ cat `lookup` map swap env
 
 def :: VAR -> CAT -> Env -> Env
 def x c = extEnv [(x,c)]
@@ -66,7 +65,7 @@ morpF f x e =
                     FM o1 o2 ->
                         let Objective o = appEnv o2 e in
                         case x of
-                            Object cat -> if cat `elem` o1 then Object (o ++ "/" ++ cat) else error $ "notBelongObj: error caused by you " ++ o ++ " is Dead"
+                            Object cat -> if cat `elem` o1 then Object (o ++ "/" ++ cat) else error $ "notBelongObj: error caused by you " ++ cat ++ " is not " ++ concatMap (++", ") o1
                             Objective cat -> error $ "you caused serious grammer issue " ++ cat ++ " is not noun"
                             Functor cat -> morpF cat (Object o) e
                     NM o1 o2 ->
@@ -111,13 +110,14 @@ morpF f x e =
 
                     A x1 x2 -> let v = appEnv x1 e in
                             let v2 = appEnv x2 e in
-                            case v of
-                            Object object ->
-                                morp x1 x2 $ extEnv [(x1, x), (x2, v)] e
-                            Objective objective ->
-                                morp x1 x2 $ extEnv [(x1, x), (x2, v)] e
-                            Functor functor ->
-                                morp x1 x2 $ extEnv [(x1, x), (x2, v)] e
+                            case (v, v2) of
+                            (Object object, Object obj)->
+                                v2
+                            (Functor functor, Objective obj)->
+                                v2
+                            (_, Functor functor)->
+                                v2
+                            _ -> error $ "i wrote this error message for you its so gross " ++  cattoStr v  ++ " <- " ++ cattoStr v2 ++ " can`t exist like your happiness"
 
                     _ -> error "UNREACHABLE CODE REACHED!!"
 
