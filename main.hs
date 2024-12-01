@@ -19,11 +19,14 @@ data FUNCTOR v = F [CAT] v
              | F' [CAT] v
         deriving (Eq, Show)
 
+
+
 data CAT = Sentence (SENTENCE CAT)
         | Object OBJECT
         | NULL
         | Functor (FUNCTOR VAR)
         deriving (Eq, Show)
+
 
 type VAR = String
 type Env = [(VAR, CAT)]
@@ -65,15 +68,29 @@ morpF :: [FUNCTOR VAR] -> SENTENCE CAT -> Env -> SENTENCE CAT
 -- morpF v sentence env = sentence
 morpF f s e = foldl (\ s f -> morpOne f s e) s f
 
+elemCat ::  Env -> CAT -> CAT -> SENTENCE Bool
+elemCat e c ca =
+        case ca of
+                Sentence c' -> (c `elem`) . (\(Sentence x) -> x ) <$> c'
+                Object o -> if ca == c then LEAF True else LEAF False
+                NULL -> LEAF False
+                Functor f ->
+                        case f of
+                                F cats v -> if c == appEnv v e || any (foldElemCat e c) cats then LEAF True else LEAF False
+                                F' cats v -> if c == appEnv v e || any (foldElemCat e c) cats then LEAF True else LEAF False
+
+foldElemCat :: Env -> CAT -> CAT -> Bool
+foldElemCat e c1 c2 = or (elemCat e c1 c2)
+
 morpOne :: FUNCTOR VAR -> SENTENCE CAT -> Env -> SENTENCE CAT
 morpOne f s e =
         case f of
                 F cs v ->
                         let real = appEnv v e in
-                                (\x -> if x `elem` cs then real else x ) <$> s
+                                (\x -> if any (foldElemCat e x) cs then Sentence (LEAF real) else Sentence (LEAF x) ) <$> s
                 F' cs v ->
                         let real = appEnv v e in
-                                (\x -> if x `elem` cs then Sentence (BRANCH (LEAF real) (LEAF x)) else x ) <$> s
+                                (\x -> if any (foldElemCat e x) cs then Sentence (BRANCH (LEAF real) (LEAF x)) else Sentence (LEAF x) ) <$> s
 
 cattoStr :: CAT ->  String
 cattoStr c = case c of
@@ -88,5 +105,5 @@ cattoStr c = case c of
 senttoStr :: SENTENCE CAT -> String
 senttoStr s =
         case s of
-                LEAF a -> cattoStr a
+                LEAF a -> "<" ++ cattoStr a ++ ">"
                 BRANCH c1 c2 -> senttoStr c1 ++ "-" ++ senttoStr c2
