@@ -1,5 +1,7 @@
 import Data.Maybe
 import Data.Tuple
+import Data.List
+import Debug.Trace
 
 
 type OBJECT = String
@@ -71,13 +73,19 @@ morpF f s e = foldl (\ s f -> morpOne f s e) s f
 elemCat ::  Env -> CAT -> CAT -> SENTENCE Bool
 elemCat e c ca =
         case ca of
-                Sentence c' -> (c `elem`) . (\(Sentence x) -> x ) <$> c'
-                Object o -> if ca == c then LEAF True else LEAF False
-                NULL -> LEAF False
+                Sentence c' -> trace (senttoStr' ((c `elem`) . (\(Sentence x) -> x ) <$> c'))  ((c `elem`) . (\(Sentence x) -> x ) <$> c')
+                Object o -> --show (if ca == c then LEAF True else LEAF False) `trace` 
+                         if ca == c then LEAF True else LEAF False
+                NULL -> "null" `trace` LEAF False
                 Functor f ->
                         case f of
-                                F cats v -> if c == appEnv v e || any (foldElemCat e c) cats then LEAF True else LEAF False
-                                F' cats v -> if c == appEnv v e || any (foldElemCat e c) cats then LEAF True else LEAF False
+                                F cats v ->
+                                        --show (if c ==  appEnv v e || any (foldElemCat e c) cats then LEAF True else LEAF False)
+                                        --`trace` 
+                                        (if c == appEnv v e || any (foldElemCat e c) cats then LEAF True else LEAF False)
+                                F' cats v -> --show (if c ==  appEnv v e || any (foldElemCat e c) cats then LEAF True else LEAF False)
+                                        --`trace` 
+                                         if c == appEnv v e || any (foldElemCat e c) cats then LEAF True else LEAF False
 
 foldElemCat :: Env -> CAT -> CAT -> Bool
 foldElemCat e c1 c2 = or (elemCat e c1 c2)
@@ -87,10 +95,12 @@ morpOne f s e =
         case f of
                 F cs v ->
                         let real = appEnv v e in
-                                (\x -> if any (foldElemCat e x) cs then Sentence (LEAF real) else Sentence (LEAF x) ) <$> s
+                                (\x -> if any (foldElemCat e x) cs then 
+                                        Sentence (BRANCH (LEAF (fromMaybe (error "how?") (find (foldElemCat e x) cs))) (LEAF x))
+                                        else x ) <$> s
                 F' cs v ->
                         let real = appEnv v e in
-                                (\x -> if any (foldElemCat e x) cs then Sentence (BRANCH (LEAF real) (LEAF x)) else Sentence (LEAF x) ) <$> s
+                                (\x -> if any (foldElemCat e x) cs then Sentence (BRANCH (LEAF real) (LEAF x)) else x ) <$> s
 
 cattoStr :: CAT ->  String
 cattoStr c = case c of
@@ -107,3 +117,9 @@ senttoStr s =
         case s of
                 LEAF a -> "<" ++ cattoStr a ++ ">"
                 BRANCH c1 c2 -> senttoStr c1 ++ "-" ++ senttoStr c2
+
+senttoStr' :: SENTENCE Bool -> String
+senttoStr' s =
+        case s of
+                LEAF a -> "<" ++ show a ++ ">"
+                BRANCH c1 c2 -> senttoStr' c1 ++ "-" ++ senttoStr' c2
