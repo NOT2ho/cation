@@ -6,27 +6,19 @@ import Debug.Trace
 
 type OBJECT = String
 
-
-data SENTENCE a = LEAF a
-                | BRANCH (SENTENCE a) (SENTENCE a)
-        deriving (Eq, Show, Foldable)
-
-instance Functor SENTENCE where
-    fmap :: (a -> b) -> SENTENCE a -> SENTENCE b
-    fmap f (LEAF x) = LEAF (f x)
-    fmap f (BRANCH a b) = BRANCH (fmap f a) (fmap f b)
+data SENTENCE a = Null | NODE a [SENTENCE a]
+        deriving (Eq, Show, Functor, Foldable)
 
 
-data FUNCTOR v = F [CAT] v
-             | F' [CAT] v
-        deriving (Eq, Show)
-
+data FUNCTOR a v = F [a] v
+             | F' [a] v
+        deriving (Eq, Show, Functor, Foldable)
 
 
 data CAT = Sentence (SENTENCE CAT)
         | Object OBJECT
         | NULL
-        | Functor (FUNCTOR VAR)
+        | Functor (FUNCTOR CAT VAR)
         deriving (Eq, Show)
 
 
@@ -59,67 +51,79 @@ findVar cat env
 def :: VAR -> CAT -> Env -> Env
 def x c = extEnv [(x,c)]
 
+
 morp :: [VAR] -> VAR -> Env -> SENTENCE CAT
 morp vars s e =
-        let fs = map (`appEnv` e) vars in
-        let cs = (`appEnv` e) s in
-                morpF (map (\(Functor x) -> x) fs) ((\(Sentence x) -> x) cs) e
+        let fs =  map ( (\(Functor x) -> x) .(`appEnv` e) ) vars in
+        let cs = ((\(Sentence x) -> x) . (`appEnv` e)) s in
+        --        ( senttoStr cs ++ concatMap (cattoStr . (`appEnv` e)) vars)`trace` 
+               foldr (morpOne e) cs fs
 
-morpF :: [FUNCTOR VAR] -> SENTENCE CAT -> Env -> SENTENCE CAT
--- morpF (va:rs) sentence env = morpF rs (morpOne va sentence env) env
--- morpF v sentence env = sentence
-morpF f s e = foldl (\ s f -> morpOne f s e) s f
-
-elemCat ::  Env -> CAT -> CAT -> SENTENCE Bool
-elemCat e c ca =
-        case ca of
-                Sentence c' -> trace (senttoStr' ((c `elem`) . (\(Sentence x) -> x ) <$> c'))  ((c `elem`) . (\(Sentence x) -> x ) <$> c')
-                Object o -> --show (if ca == c then LEAF True else LEAF False) `trace` 
-                         if ca == c then LEAF True else LEAF False
-                NULL -> "null" `trace` LEAF False
-                Functor f ->
-                        case f of
-                                F cats v ->
-                                        --show (if c ==  appEnv v e || any (foldElemCat e c) cats then LEAF True else LEAF False)
-                                        --`trace` 
-                                        (if c == appEnv v e || any (foldElemCat e c) cats then LEAF True else LEAF False)
-                                F' cats v -> --show (if c ==  appEnv v e || any (foldElemCat e c) cats then LEAF True else LEAF False)
-                                        --`trace` 
-                                         if c == appEnv v e || any (foldElemCat e c) cats then LEAF True else LEAF False
-
-foldElemCat :: Env -> CAT -> CAT -> Bool
-foldElemCat e c1 c2 = or (elemCat e c1 c2)
-
-morpOne :: FUNCTOR VAR -> SENTENCE CAT -> Env -> SENTENCE CAT
-morpOne f s e =
+morpOne :: Env -> FUNCTOR CAT VAR -> SENTENCE CAT -> SENTENCE CAT
+morpOne e f s  =
         case f of
                 F cs v ->
                         let real = appEnv v e in
-                                (\x -> if any (foldElemCat e x) cs then 
-                                        Sentence (BRANCH (LEAF (fromMaybe (error "how?") (find (foldElemCat e x) cs))) (LEAF x))
-                                        else x ) <$> s
+                                        ins (if elemCat e cs s
+                                        then Sentence $ findCat e cs <$> s
+                                        else NULL) real  s
                 F' cs v ->
                         let real = appEnv v e in
-                                (\x -> if any (foldElemCat e x) cs then Sentence (BRANCH (LEAF real) (LEAF x)) else x ) <$> s
+                                        conv (if elemCat e cs s
+                                        then Sentence $ findCat e cs <$> s
+                                        else NULL) real s
 
+
+elemCat ::  Env -> [CAT] -> SENTENCE CAT -> Bool
+elemCat e ca = foldr (((||) . (/=NULL)) . findCat e ca) False
+
+findCat ::  Env -> [CAT] -> CAT -> CAT
+findCat e ca c  =
+        "d"  `trace`
+        case c of
+                Sentence c' -> if any ((c `elem`) . (\(Sentence x) -> x )) c' then c else NULL
+                Object o -> (o ++ "/" ++ concatMap cattoStr ca ++ show  (c `elem` ca))`trace` if  c `elem` ca then c else NULL
+                NULL -> NULL
+                Functor f ->
+                        case f of
+                                F cats v ->
+                                        let real = appEnv v e  in
+                                              (if real `elem` ca  then c else NULL)
+                                F' cats v ->
+                                        let real = appEnv v e  in
+                                        if real `elem` ca  then c else NULL
+
+
+ins :: CAT -> CAT -> SENTENCE CAT -> SENTENCE CAT
+ins inserted target s =
+        case s of
+                Null -> Null
+                NODE v leafs ->
+                        case leafs of
+                                [] -> if v == target then NODE v [NODE inserted []] else NODE v leafs
+                                leafs ->
+                                        if any (elem target) leafs then NODE v $ map (ins inserted target) leafs else NODE v leafs
+
+conv :: CAT -> CAT -> SENTENCE CAT -> SENTENCE CAT
+conv inserted target s =
+        case s of
+                Null -> Null
+                NODE v leafs ->
+                        {-(senttoStr s ++ "/" ++cattoStr v ++"/" ++ concatMap senttoStr leafs) `trace`-}
+                        if v == target then NODE inserted (conv inserted target <$> leafs)
+                                else NODE v (conv inserted target <$> leafs)
 cattoStr :: CAT ->  String
 cattoStr c = case c of
     Object o -> o
     Functor f ->
         case f of
-            F os v -> "@" ++ v ++ "+" ++ concatMap cattoStr os  ++ "@"
-            F' os c -> "#" ++c ++"+" ++  concatMap cattoStr  os ++ "#"
+            F os v -> "@" ++ v ++ "+" ++ concatMap ((++","). cattoStr) os  ++ "@"
+            F' os c -> "#" ++c ++"+" ++  concatMap ((++","). cattoStr)  os ++ "#"
     Sentence c -> "(" ++ senttoStr c ++ ")"
     NULL -> "_"
 
 senttoStr :: SENTENCE CAT -> String
 senttoStr s =
         case s of
-                LEAF a -> "<" ++ cattoStr a ++ ">"
-                BRANCH c1 c2 -> senttoStr c1 ++ "-" ++ senttoStr c2
-
-senttoStr' :: SENTENCE Bool -> String
-senttoStr' s =
-        case s of
-                LEAF a -> "<" ++ show a ++ ">"
-                BRANCH c1 c2 -> senttoStr' c1 ++ "-" ++ senttoStr' c2
+                NODE v leafs -> "\n -<" ++ cattoStr v ++ concatMap senttoStr leafs ++ ">\n"
+                _ -> "_"
