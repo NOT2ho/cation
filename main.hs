@@ -10,15 +10,15 @@ data SENTENCE a = Null | NODE a [SENTENCE a]
         deriving (Eq, Show, Functor, Foldable)
 
 
-data FUNCTOR a v = F [a] v
-             | F' [a] v
+data FUNCTOR v a = F v [a]
+             | F' v [a]
         deriving (Eq, Show, Functor, Foldable)
 
 
 data CAT = Sentence (SENTENCE CAT)
         | Object OBJECT
         | NULL
-        | Functor (FUNCTOR CAT VAR)
+        | Functor (FUNCTOR VAR VAR)
         deriving (Eq, Show)
 
 
@@ -26,8 +26,8 @@ type VAR = String
 type Env = [(VAR, CAT)]
 
 
-printSent :: SENTENCE CAT -> IO ()
-printSent sent =  (putStr . drawTree) sent >> putStrLn ""
+printSent ::  Env -> SENTENCE CAT -> IO ()
+printSent e sent =  (putStr . drawTree e) sent >> putStrLn ""
 
 
 extEnv :: Env -> Env -> Env
@@ -46,7 +46,7 @@ findOBJ var env
 
 findVar :: CAT -> Env -> VAR
 findVar cat env
-    = fromMaybe (error $ cattoStr cat ++ " :not found") $ cat `lookup` map swap env
+    = fromMaybe (error $ cattoStr env cat ++ " :not found") $ cat `lookup` map swap env
 
 def :: VAR -> CAT -> Env -> Env
 def x c = extEnv [(x,c)]
@@ -56,16 +56,22 @@ morp :: [VAR] -> VAR -> Env -> SENTENCE CAT
 morp vars s e =
         let fs =  map ( (\(Functor x) -> x) .(`appEnv` e) ) vars in
         let cs = ((\(Sentence x) -> x) . (`appEnv` e)) s in
-               foldr (morpOne e) cs fs
+               foldr (morpVar e) cs fs
 
-morpOne :: Env -> FUNCTOR CAT VAR -> SENTENCE CAT -> SENTENCE CAT
+morpVar :: Env -> FUNCTOR VAR VAR -> SENTENCE CAT -> SENTENCE CAT
+morpVar e f s =
+        let realf = (`appEnv` e) <$> f in
+        morpOne e realf s
+
+
+morpOne :: Env -> FUNCTOR VAR CAT -> SENTENCE CAT -> SENTENCE CAT
 morpOne e f s  =
         case f of
-                F cs v ->
+                F v cs ->
                         let real = appEnv v e
                         in let catlist = filterCat (findCat e cs <$> s)
                         in foldr (ins real) s catlist
-                F' cs v ->
+                F' v cs->
                         let real = appEnv v e
                         in let catlist = filterCat (findCat e cs <$> s)
                         in foldr (conv real) s catlist
@@ -86,10 +92,10 @@ findCat e ca c  =
                 NULL -> NULL
                 Functor f ->
                         (case f of
-                                F cats v ->
+                                F v cats ->
                                         let real = appEnv v e
                                         in if real `elem` ca then c else NULL
-                                F' cats v ->
+                                F' v cats ->
                                         let real = appEnv v e
                                         in if real `elem` ca then c else NULL)
 
@@ -112,26 +118,26 @@ conv inserted target s =
                 Null -> Null
                 NODE v leafs -> NODE (if v == target then inserted else v) (conv inserted target <$> leafs)
 
-cattoStr :: CAT ->  String
-cattoStr c = case c of
+cattoStr :: Env -> CAT ->  String
+cattoStr e  c = case c of
     Object o -> o
     Functor f ->
         case f of
-            F os v -> "@" ++ v ++ "+" ++ concatMap ((++","). cattoStr) os  ++ "@"
-            F' os c -> "#" ++c ++"+" ++  concatMap ((++","). cattoStr)  os ++ "#"
-    Sentence c -> "(" ++ drawTree c ++ ")"
+            F v os -> "@" ++ v ++ "+" ++ concatMap (((++","). cattoStr e) . (`appEnv` e)) os  ++ "@"
+            F' c os -> "#" ++c ++"+" ++ concatMap (((++","). cattoStr e) . (`appEnv` e)) os ++ "#"
+    Sentence c -> "(" ++ drawTree e c ++ ")"
     NULL -> "_"
 
-drawTree :: SENTENCE CAT -> String
-drawTree  = unlines . draw
+drawTree ::   Env -> SENTENCE CAT -> String
+drawTree e  = unlines . draw e
 
-draw :: SENTENCE CAT -> [String]
-draw (NODE x ts0) = lines (cattoStr x) ++ drawSubTrees ts0
+draw ::  Env -> SENTENCE CAT -> [String]
+draw e (NODE x ts0) = lines (cattoStr e x) ++ drawSubTrees ts0
   where
     drawSubTrees [] = []
     drawSubTrees [t] =
-        "|" : shift "`- " "   " (draw t)
+        "|" : shift "`- " "   " (draw e t)
     drawSubTrees (t:ts) =
-        "|" : shift "+- " "|  " (draw t) ++ drawSubTrees ts
+        "|" : shift "+- " "|  " (draw e t) ++ drawSubTrees ts
 
     shift first other = zipWith (++) (first : repeat other)
