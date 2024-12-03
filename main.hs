@@ -27,7 +27,7 @@ type Env = [(VAR, CAT)]
 
 
 printSent :: SENTENCE CAT -> IO ()
-printSent cat =  mapM_ (putStr . cattoStr) cat >> putStrLn ""
+printSent sent =  (putStr . senttoStr) sent >> putStrLn ""
 
 
 extEnv :: Env -> Env -> Env
@@ -63,15 +63,15 @@ morpOne :: Env -> FUNCTOR CAT VAR -> SENTENCE CAT -> SENTENCE CAT
 morpOne e f s  =
         case f of
                 F cs v ->
-                        let real = appEnv v e in
-                                        ins (if elemCat e cs s
-                                        then Sentence $ findCat e cs <$> s
-                                        else NULL) real  s
+                        let real = appEnv v e
+                        in ins real (fromMaybe real (find (/= NULL) (findCat e cs <$> s))) s
                 F' cs v ->
-                        let real = appEnv v e in
-                                        conv (if elemCat e cs s
-                                        then Sentence $ findCat e cs <$> s
-                                        else NULL) real s
+                        let real = appEnv v e
+                        -- in let realCat = 
+                        --         if elemCat e cs s
+                        --         then findCat e cs s
+                        --         else NULL
+                        in conv real (fromMaybe real (find (/= NULL) (findCat e cs <$> s))) s
 
 
 elemCat ::  Env -> [CAT] -> SENTENCE CAT -> Bool
@@ -79,19 +79,20 @@ elemCat e ca = foldr (((||) . (/=NULL)) . findCat e ca) False
 
 findCat ::  Env -> [CAT] -> CAT -> CAT
 findCat e ca c  =
-        "d"  `trace`
         case c of
                 Sentence c' -> if any ((c `elem`) . (\(Sentence x) -> x )) c' then c else NULL
-                Object o -> (o ++ "/" ++ concatMap cattoStr ca ++ show  (c `elem` ca))`trace` if  c `elem` ca then c else NULL
+                Object o ->
+                -- (o ++ "/" ++ concatMap cattoStr ca ++ show  (c `elem` ca))`trace` 
+                        if c `elem` ca then c else NULL
                 NULL -> NULL
                 Functor f ->
-                        case f of
+                        (case f of
                                 F cats v ->
-                                        let real = appEnv v e  in
-                                              (if real `elem` ca  then c else NULL)
+                                        let real = appEnv v e
+                                        in if real `elem` ca then c else NULL
                                 F' cats v ->
-                                        let real = appEnv v e  in
-                                        if real `elem` ca  then c else NULL
+                                        let real = appEnv v e
+                                        in if real `elem` ca then c else NULL)
 
 
 ins :: CAT -> CAT -> SENTENCE CAT -> SENTENCE CAT
@@ -108,10 +109,12 @@ conv :: CAT -> CAT -> SENTENCE CAT -> SENTENCE CAT
 conv inserted target s =
         case s of
                 Null -> Null
-                NODE v leafs ->
+                NODE v leafs -> NODE (if v == target then inserted else v) (conv inserted target <$> leafs)
                         {-(senttoStr s ++ "/" ++cattoStr v ++"/" ++ concatMap senttoStr leafs) `trace`-}
-                        if v == target then NODE inserted (conv inserted target <$> leafs)
-                                else NODE v (conv inserted target <$> leafs)
+                        -- case v of 
+                        --         target -> NODE inserted (conv inserted target <$> leafs)  
+                        --         _ -> NODE v (conv inserted target <$> leafs)
+
 cattoStr :: CAT ->  String
 cattoStr c = case c of
     Object o -> o
@@ -125,5 +128,5 @@ cattoStr c = case c of
 senttoStr :: SENTENCE CAT -> String
 senttoStr s =
         case s of
-                NODE v leafs -> "\n -<" ++ cattoStr v ++ concatMap senttoStr leafs ++ ">\n"
+                NODE v leafs -> "<" ++ cattoStr v ++ ">\nL"++ concatMap ((++ "-") . senttoStr) leafs
                 _ -> "_"
