@@ -42,7 +42,8 @@ L-
 
 `FUNCTOR`는 `CAT`에서 자기 자신으로의 사상, 또는 다른 모든 사상입니다. 
 
-```data FUNCTOR a v = F [a] v
+```
+data FUNCTOR a v = F [a] v
              | F' [a] v
 ```
 이렇게 생겼는데, `a`에는 `CAT`이나 다른 뭐든 들어갈 수 있습니다. `v`도 마찬가지지만 입력할 때는 `VAR`만 넣으십시오.  
