@@ -12,13 +12,13 @@ update: 문장을 rosetree로 바꿨습니다. ~~근데 출력이 이상합니�
 
 입력
 ```
-printSent $ morp ["너무나도", "핵", "불쌍해진"] "고양이들" (
-    def "핵" (Functor (F [Object "불쌍한"] "시무룩한")) (
-        def "너무나도" (Functor (F [Object "시무룩", Object "외계인",Object "불쌍한"] "징그럽게도")) (
+printSent [] $ morp ["너무나도", "핵", "불쌍해진"] "고양이들" (
+    def "핵" (Functor (F "시무룩" ["불쌍한"] )) (
+        def "너무나도" (Functor (F "징그럽게도" ["시무룩", "외계인", "불쌍한"] )) (
             (def "불쌍해진" 
-                $ Functor (F [Object "짐승"] "불쌍한"))
+                $ Functor (F "불쌍한" ["짐승"] ))
                 [("고양이들", Sentence (NODE NULL [NODE (Object "짐승") [], NODE (Object "외계인") []]))
-                ,("불쌍한", Object "불쌍한"),("외계인", Object "외계인"),("시무룩한", Object "시무룩"), ("너무너무", Object "너무너무")
+                ,("불쌍한", Object "불쌍한"),("외계인", Object "외계인"), ("짐승", Object "짐승"),("시무룩", Object "시무룩"), ("너무너무", Object "너무너무")
                 ,  ("징그럽게도", Object "으악!귀여워라")
                 ] )))
 ```
