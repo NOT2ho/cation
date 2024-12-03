@@ -12,12 +12,15 @@ update: 문장을 rosetree로 바꿨습니다. ~~근데 출력이 이상합니�
 
 입력
 ```
-printSent $ morp ["불쌍해지다", "핵", ("불쌍해지다")] "고양이들" (
-    (def "불쌍해지다" 
-        $ Functor (F [Object "짐승", Object "불쌍"] "불쌍한"))
-        [("고양이들", Sentence (NODE NULL [NODE (Object "짐승") [], NODE (Object "불쌍") []]))
-        ,("불쌍한", Object "불쌍한"),("시무룩한", Object "시무룩")
-        , ("핵", Functor (F' [Object "불쌍한"] "시무룩한"))] )
+printSent $ morp ["너무나도", "핵", "불쌍해진"] "고양이들" (
+    def "핵" (Functor (F [Object "불쌍한"] "시무룩한")) (
+        def "너무나도" (Functor (F [Object "시무룩", Object "외계인",Object "불쌍한"] "징그럽게도")) (
+            (def "불쌍해진" 
+                $ Functor (F [Object "짐승"] "불쌍한"))
+                [("고양이들", Sentence (NODE NULL [NODE (Object "짐승") [], NODE (Object "외계인") []]))
+                ,("불쌍한", Object "불쌍한"),("외계인", Object "외계인"),("시무룩한", Object "시무룩"), ("너무너무", Object "너무너무")
+                ,  ("징그럽게도", Object "으악!귀여워라")
+                ] )))
 ```
 
 출력
@@ -26,9 +29,17 @@ _
 |
 +- 짐승
 |  |
-|  `- 시무룩
+|  `- 불쌍한
+|     |
+|     +- 시무룩
+|     |  |
+|     |  `- 으악!귀여워라
+|     |
+|     `- 으악!귀여워라
 |
-`- 불쌍
+`- 외계인
+   |
+   `- 으악!귀여워라
 ```
 
 # 규칙

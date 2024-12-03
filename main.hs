@@ -56,7 +56,6 @@ morp :: [VAR] -> VAR -> Env -> SENTENCE CAT
 morp vars s e =
         let fs =  map ( (\(Functor x) -> x) .(`appEnv` e) ) vars in
         let cs = ((\(Sentence x) -> x) . (`appEnv` e)) s in
-        --        ( senttoStr cs ++ concatMap (cattoStr . (`appEnv` e)) vars)`trace` 
                foldr (morpOne e) cs fs
 
 morpOne :: Env -> FUNCTOR CAT VAR -> SENTENCE CAT -> SENTENCE CAT
@@ -64,15 +63,15 @@ morpOne e f s  =
         case f of
                 F cs v ->
                         let real = appEnv v e
-                        in ins real (fromMaybe real (find (/= NULL) (findCat e cs <$> s))) s
+                        in let catlist = filterCat (findCat e cs <$> s)
+                        in foldr (ins real) s catlist
                 F' cs v ->
                         let real = appEnv v e
-                        -- in let realCat = 
-                        --         if elemCat e cs s
-                        --         then findCat e cs s
-                        --         else NULL
-                        in conv real (fromMaybe real (find (/= NULL) (findCat e cs <$> s))) s
+                        in let catlist = filterCat (findCat e cs <$> s)
+                        in foldr (conv real) s catlist
 
+filterCat ::SENTENCE CAT -> [CAT]
+filterCat = foldr (\x -> if x/=NULL then (x:) else id) []
 
 elemCat ::  Env -> [CAT] -> SENTENCE CAT -> Bool
 elemCat e ca = foldr (((||) . (/=NULL)) . findCat e ca) False
@@ -94,26 +93,24 @@ findCat e ca c  =
                                         let real = appEnv v e
                                         in if real `elem` ca then c else NULL)
 
-
 ins :: CAT -> CAT -> SENTENCE CAT -> SENTENCE CAT
 ins inserted target s =
         case s of
                 Null -> Null
                 NODE v leafs ->
-                        case leafs of
-                                [] -> if v == target then NODE v [NODE inserted []] else NODE v leafs
-                                leafs ->
-                                        if any (elem target) leafs then NODE v $ map (ins inserted target) leafs else NODE v leafs
+                        if v == target
+                        then
+                                if  any (target `elem`) leafs
+                                        then NODE v $ (ins inserted target <$> leafs)++[NODE inserted []]
+                                        else NODE v $ leafs++[NODE inserted []]
+                        else
+                                        NODE v $ ins inserted target <$> leafs
 
 conv :: CAT -> CAT -> SENTENCE CAT -> SENTENCE CAT
 conv inserted target s =
         case s of
                 Null -> Null
                 NODE v leafs -> NODE (if v == target then inserted else v) (conv inserted target <$> leafs)
-                        {-(senttoStr s ++ "/" ++cattoStr v ++"/" ++ concatMap senttoStr leafs) `trace`-}
-                        -- case v of 
-                        --         target -> NODE inserted (conv inserted target <$> leafs)  
-                        --         _ -> NODE v (conv inserted target <$> leafs)
 
 cattoStr :: CAT ->  String
 cattoStr c = case c of
@@ -122,14 +119,8 @@ cattoStr c = case c of
         case f of
             F os v -> "@" ++ v ++ "+" ++ concatMap ((++","). cattoStr) os  ++ "@"
             F' os c -> "#" ++c ++"+" ++  concatMap ((++","). cattoStr)  os ++ "#"
-    Sentence c -> "(" ++ senttoStr c ++ ")"
+    Sentence c -> "(" ++ drawTree c ++ ")"
     NULL -> "_"
-
-senttoStr :: SENTENCE CAT -> String
-senttoStr s =
-        case s of
-                NODE v leafs -> "<" ++ cattoStr v ++ ">\nL"++ concatMap ((++ "-") . senttoStr) leafs
-                _ -> "_"
 
 drawTree :: SENTENCE CAT -> String
 drawTree  = unlines . draw
