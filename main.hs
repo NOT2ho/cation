@@ -27,7 +27,7 @@ type Env = [(VAR, CAT)]
 
 
 printSent :: SENTENCE CAT -> IO ()
-printSent sent =  (putStr . senttoStr) sent >> putStrLn ""
+printSent sent =  (putStr . drawTree) sent >> putStrLn ""
 
 
 extEnv :: Env -> Env -> Env
@@ -130,3 +130,17 @@ senttoStr s =
         case s of
                 NODE v leafs -> "<" ++ cattoStr v ++ ">\nL"++ concatMap ((++ "-") . senttoStr) leafs
                 _ -> "_"
+
+drawTree :: SENTENCE CAT -> String
+drawTree  = unlines . draw
+
+draw :: SENTENCE CAT -> [String]
+draw (NODE x ts0) = lines (cattoStr x) ++ drawSubTrees ts0
+  where
+    drawSubTrees [] = []
+    drawSubTrees [t] =
+        "|" : shift "`- " "   " (draw t)
+    drawSubTrees (t:ts) =
+        "|" : shift "+- " "|  " (draw t) ++ drawSubTrees ts
+
+    shift first other = zipWith (++) (first : repeat other)
